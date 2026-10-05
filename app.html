@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DateWhy app - why does new Date() show the wrong day?</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#fff7ed;color:#3b2410;line-height:1.5}
+.wrap{max-width:860px;margin:0 auto;padding:26px 16px 50px}
+h1{font-size:30px}h1 span{color:#d9480f}.sub{color:#7a5a3c;margin:6px 0 14px}
+label{display:block;font-size:13px;color:#7a5a3c;margin:0 0 4px}
+input[type=text],select{width:100%;background:#fff;color:#3b2410;border:1px solid #e6cfb4;border-radius:8px;padding:10px;font:15px ui-monospace,Menlo,Consolas,monospace}
+.cols{display:grid;grid-template-columns:2fr 1fr;gap:14px}@media(max-width:700px){.cols{grid-template-columns:1fr}}
+.pre button{background:#fff;color:#d9480f;border:1px solid #d9480f;border-radius:20px;padding:5px 12px;margin:12px 6px 0 0;cursor:pointer;font-size:13px}
+.card{background:#fff;border:1px solid #ecd9c2;border-radius:10px;padding:12px 16px;margin-top:14px}
+.card h3{font-size:15px;margin-bottom:6px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:3px 10px;font-size:14px}.kv b{color:#7a5a3c;font-weight:600}.kv span{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+.n{margin-top:8px;padding:7px 10px;border-left:4px solid;font-size:14px;border-radius:0 6px 6px 0}.warn{border-color:#d9480f;background:#ffe8d6}.info{border-color:#a8845c;background:#fbf1e4}.good{border-color:#2f9e44;background:#e6f6e9}.err{border-color:#c92a2a;background:#ffe3e3}
+code{font:13px ui-monospace,Menlo,Consolas,monospace;background:#f6e6d2;padding:1px 5px;border-radius:4px}
+.foot{color:#9a7b5c;font-size:13px;margin-top:18px}a{color:#d9480f}
+</style></head><body><div class="wrap">
+<h1>Date<span>Why</span></h1>
+<div class="sub">Paste a date string and see how JavaScript turns it into a moment: which time zone it assumed, what you actually get, and why the day can come out wrong.</div>
+<div class="cols"><div><label for="s">Date string</label><input type="text" id="s" spellcheck="false" autocomplete="off"></div>
+<div><label for="z">Show the moment in</label><select id="z"></select></div></div>
+<div class="pre" id="pre"></div>
+<div id="out"></div>
+<div class="foot">The rules for the ISO and slash/dash forms come from a model compared with Node's (V8) own <code>Date.parse</code> in 6 time zones: 3 runs, 194,601 generated strings the model covers, 0 differences (details in the README). The "your browser" result is live from the browser you are using, so it can differ from the model in Firefox or Safari, and the page says so when it does. Month names and other formats are not modelled. Runs in your browser; nothing is uploaded.</div>
+<div class="foot">Part of the <a href="https://ilanis-agent.github.io/app-factory/">app factory</a>. Source: <a href="https://github.com/iLanis-agent/datewhy">GitHub</a>.</div>
+</div>
+<script>
+(function (root) {
+  'use strict';
+  // Models how V8 (Chrome, Node, Edge) turns a string into a Date. Other engines can differ.
+  var ISO = /^([+-]\d{6}|\d{4})(?:-(\d{2})(?:-(\d{2}))?)?(?:[Tt](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?(Z|z|[+-]\d{2}:?\d{2})?$/;
+  var LEG = /^(?:(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})|(\d{1,2})\/(\d{1,2})\/(\d{4}))(?: +(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?(?:(?: +(Z|z|GMT|UTC))|([+-]\d{2}:?\d{2}))?$/;
+  function dim(y, m) { return [31, (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]; }
+  function offMin(z) {
+    if (!z) return null;
+    if (/^[Zz]|GMT|UTC/.test(z)) return 0;
+    var m = /^([+-])(\d{2}):?(\d{2})$/.exec(z);
+    return (m[1] === '-' ? -1 : 1) * (+m[2] * 60 + +m[3]);
+  }
+  function build(y, mo, d, h, mi, s, ms, off) {
+    var t;
+    if (off === null) { var dt = new Date(2000, 0, 1); dt.setFullYear(y, mo - 1, d); dt.setHours(h, mi, s, ms); t = dt.getTime(); }
+    else { var u = new Date(Date.UTC(2000, 0, 1)); u.setUTCFullYear(y, mo - 1, d); u.setUTCHours(h, mi, s, ms); t = u.getTime() - off * 60000; }
+    return t;
+  }
+  function analyze(str) {
+    var s = String(str).trim(), m, r = { input: s, kind: 'other', valid: null, notes: [] };
+    if ((m = ISO.exec(s))) {
+      var y = +m[1], mo = m[2] ? +m[2] : 1, d = m[3] ? +m[3] : 1, hasTime = m[4] !== undefined, h = hasTime ? +m[4] : 0, mi = hasTime ? +m[5] : 0, sec = m[6] ? +m[6] : 0, ms = m[7] ? Math.floor(+('0.' + m[7]) * 1000 + 1e-9) : 0;
+      var z = m[8], off = offMin(z);
+      r.kind = 'iso'; r.hasTime = hasTime; r.zone = z || null;
+      if (/^[+-]\d{2}:?\d{2}$/.test(z || '') && z.indexOf(':') < 0) r.notes.push('compactoffset');
+      if (!hasTime && z) { r.valid = false; r.notes.push('zoneNoTime'); return r; }
+      var bad = mo < 1 || mo > 12 || d < 1 || d > 31 || mi > 59 || sec > 59 || h > 24 || (h === 24 && (mi || sec || ms)) || (off !== null && (Math.abs(off) > 23 * 60 + 59 || (/^[+-]/.test(z) && +(/(\d{2}):?(\d{2})$/.exec(z)[2]) > 59)));
+      if (/^-000000/.test(s)) bad = true;
+      if (bad) { r.valid = false; r.notes.push('range'); return r; }
+      if (d > dim(y, mo)) r.notes.push('rollover');
+      if (h === 24) r.notes.push('h24');
+      r.valid = true; r.mode = hasTime ? (off === null ? 'local' : 'offset') : 'utc';
+      r.epoch = build(y, mo, d, h, mi, sec, ms, hasTime ? off : 0);
+      return r;
+    }
+    if ((m = LEG.exec(s))) {
+      var Y = m[1] ? +m[1] : +m[6]; if (Y < 100) Y += Y < 50 ? 2000 : 1900; var M = m[1] ? +m[2] : +m[4], D = m[1] ? +m[3] : +m[5];
+      var H = m[7] !== undefined ? +m[7] : 0, I = m[8] !== undefined ? +m[8] : 0, S = m[9] ? +m[9] : 0, MS = m[10] ? Math.floor(+('0.' + m[10]) * 1000 + 1e-9) : 0, zz = m[11] || m[12] || null, o2 = offMin(zz);
+      r.kind = 'legacy'; r.zone = zz;
+      if (M < 1 || M > 12 || D < 1 || D > 31 || H > 24 || (H === 24 && (I || S || MS)) || I > 59 || S > 59 || (o2 !== null && ((/^[+-]/.test(zz) && +(/(\d{2}):?(\d{2})$/.exec(zz)[2]) > 59)))) { r.valid = false; r.notes.push('range'); return r; }
+      r.valid = true; r.mode = o2 === null ? 'local' : 'offset'; r.epoch = build(Y, M, D, H, I, S, MS, o2);
+      if (D > dim(Y, M)) r.notes.push('rollover');
+      return r;
+    }
+    return r;
+  }
+  var api = { analyze: analyze };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.DateWhy = api;
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var BZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  var ZONES = [BZ, 'UTC', 'America/Los_Angeles', 'America/New_York', 'Europe/London', 'Europe/Berlin', 'Asia/Jerusalem', 'Asia/Kolkata', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland'].filter(function (z, i, a) { return a.indexOf(z) === i; });
+  $('z').innerHTML = ZONES.map(function (z, i) { return '<option value="' + z + '">' + z + (i === 0 ? ' (this browser)' : '') + '</option>'; }).join('');
+  var PRESETS = [
+    { n: 'date only', s: '2026-03-01', z: 'America/Los_Angeles' },
+    { n: 'date and time', s: '2026-03-01T00:00', z: 'America/Los_Angeles' },
+    { n: 'no zero padding', s: '2026-3-1', z: 'America/Los_Angeles' },
+    { n: 'Feb 30', s: '2026-02-30', z: 'UTC' },
+    { n: 'with GMT', s: '2026-03-01 10:00 GMT', z: 'Asia/Tokyo' },
+    { n: 'month name', s: 'March 1, 2026', z: 'America/Los_Angeles' },
+    { n: 'bad offset', s: '2026-03-01T10:00+05', z: 'UTC' }
+  ];
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function fmt(t, zone) {
+    try { return new Intl.DateTimeFormat('en-GB', { timeZone: zone, weekday: 'short', year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZoneName: 'short' }).format(new Date(t)); } catch (e) { return '?'; }
+  }
+  function ymd(t, zone) { var p = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)); return p; }
+  function run() {
+    var s = $('s').value, zone = $('z').value, out = $('out');
+    if (!s.trim()) { out.innerHTML = '<div class="card">Type or pick a date string.</div>'; return; }
+    var a = DateWhy.analyze(s), live = Date.parse(s), h = '';
+    if (isNaN(live)) {
+      h += '<div class="n err"><b>Invalid Date.</b> This browser cannot read "' + esc(s) + '".</div>';
+      if (a.kind === 'iso' && a.valid === false) {
+        if (a.notes.indexOf('zoneNoTime') >= 0) h += '<div class="n info">A zone was given without a time. Add a time like <code>T00:00</code> or drop the zone.</div>';
+        else h += '<div class="n info">It looks like an ISO date, but a number is out of range (month 1-12, day 1-31, hour up to 24, minute and second up to 59, offset minutes up to 59).</div>';
+      } else if (a.kind === 'iso' && a.notes.length === 0 && /[+-]\d{2}$/.test(s)) h += '<div class="n info">An offset needs minutes: <code>+05:00</code> or <code>+0500</code>, not <code>+05</code>.</div>';
+      else h += '<div class="n info">Not a form this page models. ISO 8601 (<code>2026-03-01T10:00:00Z</code>) is the one format every engine must read.</div>';
+      out.innerHTML = h; return;
+    }
+    var mode = a.valid ? a.mode : null;
+    h += '<div class="card"><h3>The moment you get</h3><div class="kv"><b>UTC</b><span>' + new Date(live).toISOString() + '</span><b>In ' + esc(zone) + '</b><span>' + esc(fmt(live, zone)) + '</span><b>Epoch ms</b><span>' + live + '</span></div></div>';
+    if (mode === 'utc') {
+      h += '<div class="n warn">A date with no time ("<code>' + esc(s.trim()) + '</code>") is read as <b>midnight UTC</b>. Date and time without a zone would be read as your local time instead. That is the rule in the ECMAScript standard.</div>';
+      var d1 = ymd(live, zone), d0 = new Date(live).toISOString().slice(0, 10);
+      if (d1 !== d0) h += '<div class="n err">In ' + esc(zone) + ' that moment is on <b>' + d1 + '</b>, not ' + d0 + '. Code that formats it in local time (<code>getDate()</code>, <code>toLocaleDateString()</code>) shows the day before. Fix: pass <code>{timeZone: "UTC"}</code> when formatting, or build local midnight with <code>new Date(2026, 2, 1)</code>.</div>';
+      else h += '<div class="n good">In ' + esc(zone) + ' the calendar day is still ' + d1 + ', so nothing shifts here. Pick a zone west of UTC (for example America/Los_Angeles) to see the classic off-by-one day.</div>';
+    } else if (mode === 'local') {
+      h += '<div class="n warn">No zone in the string, so it is read as <b>local time of the browser running the code</b> (' + esc(BZ) + '). The same string gives a different moment on a machine in another zone' + (a.kind === 'legacy' ? '. This is the legacy (non-ISO) path: other engines may read it differently or reject it.' : '.') + '</div>';
+    } else if (mode === 'offset') {
+      h += '<div class="n good">The string carries its own zone (<code>' + esc(a.zone) + '</code>), so the moment is the same on every machine.</div>';
+    } else {
+      h += '<div class="n info">This form is not in the model: the result above is simply what this browser does, and other engines may read it differently. Prefer ISO 8601 with an explicit zone.</div>';
+    }
+    if (a.kind === 'legacy') h += '<div class="n info">This is not ISO 8601, so it goes through the engine\'s own fallback parser. V8 accepts it, but the standard does not require that. Prefer <code>YYYY-MM-DDTHH:mm:ss</code> plus <code>Z</code> or an offset.</div>';
+    if (a.notes.indexOf('rollover') >= 0) h += '<div class="n warn">That day does not exist in that month. V8 does not reject it, it rolls over into the next month. Check user input before parsing.</div>';
+    if (a.notes.indexOf('h24') >= 0) h += '<div class="n info"><code>24:00</code> means the end of the day, so it is the next day at 00:00.</div>';
+    if (a.notes.indexOf('compactoffset') >= 0) h += '<div class="n info">An offset without a colon (<code>+0530</code>) works in V8, but the standard format uses <code>+05:30</code>.</div>';
+    if (a.kind === 'iso' && (/\dt\d/.test(s) || /\dz$/.test(s))) h += '<div class="n info">Lowercase <code>t</code> or <code>z</code> is not strict ISO, but V8 accepts it.</div>';
+    if (a.valid && a.epoch !== live) h += '<div class="n err"><b>This browser differs from the V8 model:</b> the model says ' + new Date(a.epoch).toISOString() + ' but this browser returned ' + new Date(live).toISOString() + '. Another engine reads this string differently, which is exactly the portability problem.</div>';
+    out.innerHTML = h;
+  }
+  $('pre').innerHTML = PRESETS.map(function (p, i) { return '<button data-i="' + i + '">' + p.n + '</button>'; }).join('');
+  $('pre').onclick = function (e) { var i = e.target.getAttribute && e.target.getAttribute('data-i'); if (i === null || i === undefined) return; var p = PRESETS[+i]; $('s').value = p.s; if (ZONES.indexOf(p.z) < 0) { $('z').insertAdjacentHTML('beforeend', '<option>' + p.z + '</option>'); } $('z').value = p.z; run(); };
+  $('s').addEventListener('input', run); $('z').addEventListener('change', run);
+  $('s').value = PRESETS[0].s; if (ZONES.indexOf('America/Los_Angeles') >= 0) $('z').value = 'America/Los_Angeles'; run();
+})();
+</script></body></html>
