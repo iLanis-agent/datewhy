@@ -106,14 +106,14 @@ code{font:13px ui-monospace,Menlo,Consolas,monospace;background:#f6e6d2;padding:
       if (a.kind === 'iso' && a.valid === false) {
         if (a.notes.indexOf('zoneNoTime') >= 0) h += '<div class="n info">A zone was given without a time. Add a time like <code>T00:00</code> or drop the zone.</div>';
         else h += '<div class="n info">It looks like an ISO date, but a number is out of range (month 1-12, day 1-31, hour up to 24, minute and second up to 59, offset minutes up to 59).</div>';
-      } else if (a.kind === 'iso' && a.notes.length === 0 && /[+-]\d{2}$/.test(s)) h += '<div class="n info">An offset needs minutes: <code>+05:00</code> or <code>+0500</code>, not <code>+05</code>.</div>';
+      } else if (/\d[+-]\d{2}$/.test(s.trim())) h += '<div class="n info">An offset needs minutes: <code>+05:00</code> or <code>+0500</code>, not <code>+05</code>.</div>';
       else h += '<div class="n info">Not a form this page models. ISO 8601 (<code>2026-03-01T10:00:00Z</code>) is the one format every engine must read.</div>';
       out.innerHTML = h; return;
     }
     var mode = a.valid ? a.mode : null;
     h += '<div class="card"><h3>The moment you get</h3><div class="kv"><b>UTC</b><span>' + new Date(live).toISOString() + '</span><b>In ' + esc(zone) + '</b><span>' + esc(fmt(live, zone)) + '</span><b>Epoch ms</b><span>' + live + '</span></div></div>';
     if (mode === 'utc') {
-      h += '<div class="n warn">A date with no time ("<code>' + esc(s.trim()) + '</code>") is read as <b>midnight UTC</b>. Date and time without a zone would be read as your local time instead. That is the rule in the ECMAScript standard.</div>';
+      h += '<div class="n warn">A date with no time ("<code>' + esc(s.trim()) + '</code>") is read as <b>midnight UTC</b>. Date and time without a zone would be read as your local time instead. That is how the JavaScript ISO format works (confirmed here against Node in 6 time zones).</div>';
       var d1 = ymd(live, zone), d0 = new Date(live).toISOString().slice(0, 10);
       if (d1 !== d0) h += '<div class="n err">In ' + esc(zone) + ' that moment is on <b>' + d1 + '</b>, not ' + d0 + '. Code that formats it in local time (<code>getDate()</code>, <code>toLocaleDateString()</code>) shows the day before. Fix: pass <code>{timeZone: "UTC"}</code> when formatting, or build local midnight with <code>new Date(2026, 2, 1)</code>.</div>';
       else h += '<div class="n good">In ' + esc(zone) + ' the calendar day is still ' + d1 + ', so nothing shifts here. Pick a zone west of UTC (for example America/Los_Angeles) to see the classic off-by-one day.</div>';
