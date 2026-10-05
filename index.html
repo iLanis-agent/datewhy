@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DateWhy - why does new Date() show the wrong day?</title>
+<meta name="description" content="Paste a date string and see which time zone JavaScript assumed, the moment you get, and why the day can shift.">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#fff7ed;color:#3b2410;line-height:1.6}
+.wrap{max-width:680px;margin:0 auto;padding:48px 20px 60px}.logo{font-size:46px;font-weight:800}.logo span{color:#d9480f}
+.tag{font-size:19px;margin-top:10px;color:#7a5a3c}.cta{display:inline-block;margin-top:26px;background:#d9480f;color:#fff;font-weight:700;padding:14px 30px;border-radius:10px;text-decoration:none}
+h2{font-size:21px;margin:40px 0 10px}li{color:#7a5a3c;margin-bottom:8px}ul{margin-left:20px}
+.demo{margin-top:26px;background:#fff;border:1px solid #ecd9c2;border-radius:10px;padding:16px;font:14px ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}.demo b{color:#c92a2a}.demo i{color:#2f9e44;font-style:normal}
+footer{margin-top:50px;font-size:13px;color:#9a7b5c}a{color:#d9480f}
+</style></head><body><div class="wrap">
+<div class="logo">Date<span>Why</span></div>
+<div class="tag">You typed March 1. Your app shows February 28. Here is why.</div>
+<a class="cta" href="app.html">Open the app</a>
+<div class="demo">new Date("2026-03-01")        <i>midnight UTC</i>
+new Date("2026-03-01T00:00")  <b>midnight local</b>
+in Los Angeles the first one is Feb 28, 4pm</div>
+<h2>What it does</h2>
+<ul><li>Reads a date string the way Chrome and Node do and says which zone it assumed: UTC, your local time, or the one in the string.</li>
+<li>Shows the exact moment in UTC and in any zone you pick, and warns when the calendar day shifts.</li>
+<li>Explains the odd cases: unpadded months, Feb 30 rolling into March, 24:00, offsets like +05 that are rejected.</li>
+<li>Compares the live result of your own browser with the model, to catch engines that disagree.</li></ul>
+<h2>How far to trust it</h2>
+<ul><li>The model matched Node's own date parser on 194,601 generated strings in 6 time zones with 0 differences. Month names and other free-form formats are not modelled, and Firefox and Safari were not tested.</li></ul>
+<footer>Part of the <a href="https://ilanis-agent.github.io/app-factory/">app factory</a>. Source: <a href="https://github.com/iLanis-agent/datewhy">GitHub</a>.</footer>
+</div></body></html>
