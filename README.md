@@ -1,0 +1,6 @@
+# DateWhy
+Paste a date string: which time zone JavaScript assumed, the moment you get in UTC and any zone, and why the calendar day can shift. Static client-side app, open `app.html`.
+Sources: none fetched. The rules are a model of V8 (Chrome, Node, Edge) checked against Node's own `Date.parse`; the ECMAScript date-only = UTC, date-time = local rule is shown as I know it, not read from the spec text this run.
+Tests: `node test-engine.js` runs generated strings (ISO dates and times, unpadded, slash and US forms, offsets, GMT/UTC, bad values) in subprocesses with TZ set to UTC, America/Los_Angeles, Asia/Jerusalem, Pacific/Auckland, Asia/Kolkata and America/St_Johns, and compares the model's instant (or invalid) with `Date.parse`. Three runs: 194,601 checks, 0 differences; 165,399 more generated strings fell outside the model and were not compared.
+Found by the oracle and modelled: Feb 30 rolls over, 24:00 is allowed only as 24:00:00, offsets without a colon work, +05 does not, lowercase t/z accepted, legacy forms need a space before the time and before GMT/UTC, two-digit years map to 1950-2049, legacy offsets up to +24:00 accepted.
+Limits: V8 only (Firefox and Safari not tested; the app compares the live browser against the model). Month names and other free-form strings are not modelled. Explanation texts are not oracle-tested, only the instants.
